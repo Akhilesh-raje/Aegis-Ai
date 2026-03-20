@@ -100,6 +100,7 @@ class AgentServer:
         # Update fleet_manager with live metrics from the agent
         try:
             from backend.engine.fleet_manager import fleet_manager # type: ignore
+            from backend.engine.stream_manager import ws_manager # type: ignore
             system_data = data.get("system", {})
             cpu = system_data.get("cpu_usage", system_data.get("cpu_percent", 0))
             mem = system_data.get("ram_usage", system_data.get("memory_percent", 0))
@@ -113,6 +114,11 @@ class AgentServer:
             else:
                 fleet_manager.update_node(node_id, 0, {"cpu": round(cpu, 1), "mem": round(mem, 1)})
                 fleet_manager.clear_attack_info(node_id)
+            
+            # IMMEDIATELY broadcast fleet data to the Admin dashboard
+            # This ensures attack state (red/green) updates in real-time
+            fleet_data = fleet_manager.get_fleet_summary()
+            await ws_manager.broadcast_channel("FLEET", fleet_data)
         except Exception as e:
             print(f"[AgentServer] Fleet metric update error: {e}")
         
