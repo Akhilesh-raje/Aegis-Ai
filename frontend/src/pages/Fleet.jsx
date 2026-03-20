@@ -1,57 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, ShieldAlert, Activity, Server, Users, Terminal, CheckCircle, XCircle } from 'lucide-react';
-import { wsService } from '../services/api';
+import { useAegisSocket } from '../services/useAegisSocket';
 
 const Fleet = () => {
-  const [fleetNodes, setFleetNodes] = useState([]);
-  const [identities, setIdentities] = useState([]);
   const [commandStatus, setCommandStatus] = useState({}); // node_id -> { status: 'executing'|'success'|'failed', detail: '' }
   const [selectedNode, setSelectedNode] = useState(null);
 
+  // Use the same WebSocket hook pattern as all other pages
+  const { data: fleetData } = useAegisSocket('FLEET');
+  const { data: identityData } = useAegisSocket('IDENTITY');
+  const { data: commandData } = useAegisSocket('COMMAND_UPDATES', 0);
+
+  const fleetNodes = Array.isArray(fleetData) ? fleetData : [];
+  const identities = Array.isArray(identityData) ? identityData : [];
+
+  // Handle command updates from WebSocket
   useEffect(() => {
-    // Subscribe to Fleet and Identity Channels
-    const unsubFleet = wsService.subscribe('FLEET', (data) => {
-      if (Array.isArray(data)) setFleetNodes(data);
-    });
-
-    const unsubIdentity = wsService.subscribe('IDENTITY', (data) => {
-      if (Array.isArray(data)) setIdentities(data);
-    });
-
-    // Subscribe to Command Updates
-    const unsubCommands = wsService.subscribe('COMMAND_UPDATES', (data) => {
-      if (data && data.node_id) {
-        setCommandStatus(prev => ({
-          ...prev,
-          [data.node_id]: { 
-            status: data.status, 
-            detail: data.detail || '',
-            timestamp: Date.now()
-          }
-        }));
-        
-        // Auto-clear success/fail after 5 seconds
-        if (data.status === 'success' || data.status === 'failed') {
-          setTimeout(() => {
-            setCommandStatus(prev => {
-              const updated = { ...prev };
-              if (updated[data.node_id]?.timestamp <= Date.now() - 4000) {
-                 delete updated[data.node_id];
-              }
-              return updated;
-            });
-          }, 5000);
+    if (commandData && commandData.node_id) {
+      setCommandStatus(prev => ({
+        ...prev,
+        [commandData.node_id]: {
+          status: commandData.status,
+          detail: commandData.detail || '',
+          timestamp: Date.now()
         }
-      }
-    });
+      }));
 
-    return () => {
-      unsubFleet();
-      unsubIdentity();
-      unsubCommands();
-    };
-  }, []);
+      // Auto-clear success/fail after 5 seconds
+      if (commandData.status === 'success' || commandData.status === 'failed') {
+        const nodeId = commandData.node_id;
+        setTimeout(() => {
+          setCommandStatus(prev => {
+            const updated = { ...prev };
+            if (updated[nodeId]?.timestamp <= Date.now() - 4000) {
+              delete updated[nodeId];
+            }
+            return updated;
+          });
+        }, 5000);
+      }
+    }
+  }, [commandData]);
 
   const handlePatch = async (nodeId, action) => {
     if (!window.confirm(`Are you sure you want to execute [${action}] on node ${nodeId}?`)) return;
@@ -63,7 +53,7 @@ const Fleet = () => {
     }));
 
     try {
-      const res = await fetch('http://localhost:8000/api/fleet/command', {
+      const res = await fetch('/api/fleet/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ node_id: nodeId, action })

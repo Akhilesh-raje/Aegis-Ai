@@ -53,16 +53,17 @@ class AgentServer:
             return False
         return True
 
-    async def connect_agent(self, websocket: WebSocket, node_id: str, token: str):
-        """Accept agent WebSocket connection if authenticated."""
+    async def connect_agent(self, websocket: WebSocket, node_id: str, token: str) -> bool:
+        """Accept agent WebSocket connection if authenticated. Returns True on success."""
         if not self.validate_token(node_id, token):
             await websocket.close(code=1008, reason="Invalid token")
-            return
+            return False
 
         await websocket.accept()
         self.active_sockets[node_id] = websocket
         self.agent_heartbeats[node_id] = datetime.now(timezone.utc)
         print(f"[AgentServer] Agent {node_id} securely connected.")
+        return True
 
     async def disconnect_agent(self, node_id: str):
         """Handle agent disconnection."""
@@ -95,22 +96,28 @@ class AgentServer:
             await self.disconnect_agent(node_id)
 
     async def _process_telemetry(self, node_id: str, data: Dict[str, Any]):
-        """Route incoming telemetry to the core engine."""
-        # Here we inject the remote node data into the central pipeline
+        """Route incoming telemetry to the core engine and update fleet metrics."""
+        # Update fleet_manager with live metrics from the agent
+        try:
+            from backend.engine.fleet_manager import fleet_manager # type: ignore
+            system_data = data.get("system", {})
+            cpu = system_data.get("cpu_usage", system_data.get("cpu_percent", 0))
+            mem = system_data.get("ram_usage", system_data.get("memory_percent", 0))
+            fleet_manager.update_node(node_id, 0, {"cpu": round(cpu, 1), "mem": round(mem, 1)})
+        except Exception as e:
+            print(f"[AgentServer] Fleet metric update error: {e}")
+        
+        # Route to the central analysis pipeline
         try:
             from backend.engine.normalization import EventNormalizer # type: ignore
             from backend.engine.identity_engine import identity_engine # type: ignore
             from backend.storage.database import Database # type: ignore
             
-            # Optionally add node_id to the data
             if isinstance(data, dict):
                 data["source_node"] = node_id
                 
             db = Database()
             
-            # Very lightweight pass - assume it matches the expected structure
-            # For this prototype, we treat it similarly to real_telemetry
-            # If it's a list of events:
             if isinstance(data, list):
                 for event_data in data:
                     event_data["source_node"] = node_id

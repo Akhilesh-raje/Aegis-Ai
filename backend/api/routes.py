@@ -566,7 +566,9 @@ async def agent_websocket_endpoint(websocket: WebSocket, node_id: str, token: st
     """Persistent, dedicated WebSocket for Agent telemetry and commands."""
     from backend.engine.agent_server import agent_server # type: ignore
     
-    await agent_server.connect_agent(websocket, node_id, token)
+    accepted = await agent_server.connect_agent(websocket, node_id, token)
+    if not accepted:
+        return
     
     # Block in the server's listen loop
     await agent_server.listen(websocket, node_id)
