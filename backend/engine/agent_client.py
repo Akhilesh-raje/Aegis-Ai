@@ -77,7 +77,7 @@ class AgentClient:
                 print("[AgentClient] Halting due to registration failure.")
                 return
 
-        ws_url = f"{self.admin_ws_url}/ws/agent/{self.node_id}?token={self.token}"
+        ws_url = f"{self.admin_ws_url}/api/ws/agent/{self.node_id}?token={self.token}"
         print(f"[AgentClient] Connecting to WebSockets at {ws_url}")
 
         while True:
