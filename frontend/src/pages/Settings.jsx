@@ -16,11 +16,21 @@ export default function Settings() {
 
   const getDeploymentScript = () => {
     const adminIp = window.location.hostname;
-    return `# AegisAI Agent Deployment Script (Shell)
-export NODE_ROLE="client"
-export ADMIN_URL="http://${adminIp}:8000"
-export NODE_ID=$(hostname)
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8001`;
+    return `# AegisAI Agent Auto-Pair Script (PowerShell)
+# Run this on the CLIENT system connected to the Admin's hotspot
+
+# Auto-detect Admin IP via gateway (hotspot host = Admin)
+$gateway = (Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -ne "0.0.0.0" } | Sort-Object RouteMetric | Select-Object -First 1).NextHop
+if (-not $gateway) { $gateway = "${adminIp}" }
+
+Write-Host "[AegisAI] Admin IP: $gateway" -ForegroundColor Cyan
+Write-Host "[AegisAI] Node ID: $env:COMPUTERNAME" -ForegroundColor Cyan
+
+$env:NODE_ROLE = "client"
+$env:ADMIN_URL = "http://\${gateway}:8000"
+$env:NODE_ID = $env:COMPUTERNAME
+
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8001`;
   };
 
   const copyScript = () => {
