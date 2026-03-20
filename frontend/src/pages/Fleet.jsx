@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, ShieldAlert, Activity, Server, Users, Terminal, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, ShieldAlert, Activity, Server, Users, Terminal, CheckCircle, XCircle, Zap, ShieldOff } from 'lucide-react';
 import { useAegisSocket } from '../services/useAegisSocket';
 
-const Fleet = () => {
-  const [commandStatus, setCommandStatus] = useState({}); // node_id -> { status: 'executing'|'success'|'failed', detail: '' }
-  const [selectedNode, setSelectedNode] = useState(null);
+const ATTACK_TYPES = [
+  { id: 'DDoS Flood', label: 'DDoS Flood', color: 'red' },
+  { id: 'Ransomware', label: 'Ransomware', color: 'orange' },
+  { id: 'SQL Injection', label: 'SQL Injection', color: 'yellow' },
+  { id: 'Brute Force', label: 'Brute Force SSH', color: 'purple' },
+  { id: 'Data Exfiltration', label: 'Data Exfiltration', color: 'pink' },
+];
 
-  // Use the same WebSocket hook pattern as all other pages
+const Fleet = () => {
+  const [commandStatus, setCommandStatus] = useState({});
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [attackMenu, setAttackMenu] = useState(null); // node_id when menu is open
+
   const { data: fleetData } = useAegisSocket('FLEET');
   const { data: identityData } = useAegisSocket('IDENTITY');
   const { data: commandData } = useAegisSocket('COMMAND_UPDATES', 0);
@@ -15,7 +23,14 @@ const Fleet = () => {
   const fleetNodes = Array.isArray(fleetData) ? fleetData : [];
   const identities = Array.isArray(identityData) ? identityData : [];
 
-  // Handle command updates from WebSocket
+  // Keep selectedNode in sync with live data
+  useEffect(() => {
+    if (selectedNode) {
+      const updated = fleetNodes.find(n => n.node_id === selectedNode.node_id);
+      if (updated) setSelectedNode(updated);
+    }
+  }, [fleetNodes]);
+
   useEffect(() => {
     if (commandData && commandData.node_id) {
       setCommandStatus(prev => ({
@@ -26,8 +41,6 @@ const Fleet = () => {
           timestamp: Date.now()
         }
       }));
-
-      // Auto-clear success/fail after 5 seconds
       if (commandData.status === 'success' || commandData.status === 'failed') {
         const nodeId = commandData.node_id;
         setTimeout(() => {
@@ -43,27 +56,18 @@ const Fleet = () => {
     }
   }, [commandData]);
 
-  const handlePatch = async (nodeId, action) => {
-    if (!window.confirm(`Are you sure you want to execute [${action}] on node ${nodeId}?`)) return;
-
-    // Optimistic UI update
+  const dispatchCommand = async (nodeId, action, params = {}) => {
     setCommandStatus(prev => ({
       ...prev,
-      [nodeId]: { status: 'executing', detail: 'Dispatching command...' }
+      [nodeId]: { status: 'executing', detail: `Dispatching ${action}...` }
     }));
-
     try {
       const res = await fetch('/api/fleet/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ node_id: nodeId, action })
+        body: JSON.stringify({ node_id: nodeId, action, params })
       });
-      
-      if (!res.ok) {
-        throw new Error('Failed to dispatch command');
-      }
-      
-      // The actual success/fail will come via the COMMAND_UPDATES websocket channel
+      if (!res.ok) throw new Error('Failed to dispatch');
       setCommandStatus(prev => ({
         ...prev,
         [nodeId]: { status: 'executing', detail: 'Waiting for agent ACK...' }
@@ -76,9 +80,16 @@ const Fleet = () => {
     }
   };
 
+  const launchAttack = (nodeId, attackType) => {
+    setAttackMenu(null);
+    dispatchCommand(nodeId, 'simulate_attack', { attack_type: attackType });
+  };
+
+  const neutralize = (nodeId) => {
+    dispatchCommand(nodeId, 'neutralize');
+  };
+
   const getNodeIdentity = (nodeId) => {
-    // simplistic mapping: assumption that node hostname relates to identity or we just show top identities
-    // If the system generates an identity for 'Node-Client' we link it here
     return identities.find(i => i.username === nodeId || i.username.includes(nodeId));
   };
 
@@ -107,9 +118,11 @@ const Fleet = () => {
                 </div>
               ) : (
                 fleetNodes.map((node) => {
+                  const isUnderAttack = !!node.attack_info;
                   const isHighRisk = node.risk_score > 60;
                   const isDegraded = node.status === 'degraded' || node.status === 'offline';
                   const cStatus = commandStatus[node.node_id];
+                  const isRemote = node.node_id !== 'local-node';
 
                   return (
                     <motion.div
@@ -120,12 +133,24 @@ const Fleet = () => {
                       onClick={() => setSelectedNode(node)}
                       className={`relative p-5 rounded-xl border transition-all cursor-pointer ${
                         selectedNode?.node_id === node.node_id ? 'ring-2 ring-cyan-500 bg-gray-800' : 'bg-gray-900 hover:bg-gray-800'
-                      } ${isHighRisk ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-gray-800'}`}
+                      } ${isUnderAttack 
+                          ? 'border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.4)] animate-pulse' 
+                          : isHighRisk 
+                            ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
+                            : 'border-gray-800'}`}
                     >
+                      {/* Attack Pulse Overlay */}
+                      {isUnderAttack && (
+                        <div className="absolute inset-0 rounded-xl bg-red-500/5 pointer-events-none" />
+                      )}
+
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${isHighRisk ? 'bg-red-500/20 text-red-500' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                            {isHighRisk ? <ShieldAlert size={20} /> : <Server size={20} />}
+                          <div className={`p-2 rounded-lg ${
+                            isUnderAttack ? 'bg-red-500/30 text-red-400 animate-pulse' :
+                            isHighRisk ? 'bg-red-500/20 text-red-500' : 'bg-cyan-500/20 text-cyan-400'
+                          }`}>
+                            {isUnderAttack ? <ShieldAlert size={20} /> : isHighRisk ? <ShieldAlert size={20} /> : <Server size={20} />}
                           </div>
                           <div>
                             <h3 className="font-semibold text-white">{node.hostname}</h3>
@@ -133,23 +158,54 @@ const Fleet = () => {
                           </div>
                         </div>
                         <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                          isUnderAttack ? 'bg-red-500/30 text-red-300 animate-pulse' :
                           node.status === 'nominal' ? 'bg-green-500/20 text-green-400' :
+                          node.status === 'critical' ? 'bg-red-500/20 text-red-400' :
                           isDegraded ? 'bg-gray-500/20 text-gray-400' :
-                          'bg-red-500/20 text-red-400'
+                          'bg-yellow-500/20 text-yellow-400'
                         }`}>
-                          {node.status}
+                          {isUnderAttack ? '🔴 UNDER ATTACK' : node.status}
                         </div>
                       </div>
 
-                      <div className="flex justify-between text-sm text-gray-300 mt-4 bg-black/30 p-2 rounded">
-                        <div>Risk: <span className={isHighRisk ? 'text-red-400 font-bold' : 'text-green-400'}>{node.risk_score}/100</span></div>
+                      {/* Attack Info Banner */}
+                      {isUnderAttack && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mb-3 p-3 rounded-lg bg-red-900/40 border border-red-500/40"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-red-300 font-bold text-sm flex items-center space-x-2">
+                              <Zap size={14} className="animate-pulse" />
+                              <span>{node.attack_info.attack_type}</span>
+                            </span>
+                            <span className="text-red-400 text-xs font-mono">
+                              {Math.round(node.attack_info.elapsed_seconds || 0)}s elapsed
+                            </span>
+                          </div>
+                          {node.attack_info.indicators && (
+                            <div className="space-y-1">
+                              {node.attack_info.indicators.map((ind, i) => (
+                                <div key={i} className="text-xs text-red-300/80 flex items-center space-x-1">
+                                  <span className="text-red-500">▸</span>
+                                  <span>{ind}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+
+                      <div className="flex justify-between text-sm text-gray-300 mt-2 bg-black/30 p-2 rounded">
+                        <div>Risk: <span className={isHighRisk || isUnderAttack ? 'text-red-400 font-bold' : 'text-green-400'}>{node.risk_score}/100</span></div>
                         <div>CPU: {node.metrics?.cpu || 0}%</div>
                         <div>RAM: {node.metrics?.mem || 0}%</div>
                       </div>
 
                       {/* Command Status UI */}
                       {cStatus && (
-                        <div className={`mt-4 p-2 rounded text-xs flex items-center justify-between ${
+                        <div className={`mt-3 p-2 rounded text-xs flex items-center justify-between ${
                           cStatus.status === 'executing' ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300' :
                           cStatus.status === 'success' ? 'bg-green-500/20 border border-green-500/30 text-green-300' :
                           'bg-red-500/20 border border-red-500/30 text-red-300'
@@ -164,17 +220,48 @@ const Fleet = () => {
                         </div>
                       )}
 
-                      {/* 1-Click Patch Button */}
-                      {isHighRisk && !cStatus && (
-                         <div className="mt-4 flex justify-end">
-                           <button 
-                              onClick={(e) => { e.stopPropagation(); handlePatch(node.node_id, 'isolate_node') }}
-                              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded shadow-lg shadow-red-500/20 transition-all flex items-center space-x-2"
+                      {/* Action Buttons */}
+                      {isRemote && !cStatus && (
+                        <div className="mt-3 flex justify-end space-x-2">
+                          {isUnderAttack ? (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); neutralize(node.node_id); }}
+                              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded shadow-lg shadow-green-500/20 transition-all flex items-center space-x-2"
                             >
-                              <Terminal size={14} />
-                              <span>1-Click Patch & Fix</span>
-                           </button>
-                         </div>
+                              <Shield size={14} />
+                              <span>Neutralize Threat</span>
+                            </button>
+                          ) : (
+                            <div className="relative">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setAttackMenu(attackMenu === node.node_id ? null : node.node_id); }}
+                                className="px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold rounded shadow-lg shadow-red-500/20 transition-all flex items-center space-x-2"
+                              >
+                                <Zap size={14} />
+                                <span>Launch Attack Sim</span>
+                              </button>
+                              {/* Attack Type Dropdown */}
+                              {attackMenu === node.node_id && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="absolute right-0 top-full mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                                >
+                                  {ATTACK_TYPES.map(atk => (
+                                    <button
+                                      key={atk.id}
+                                      onClick={(e) => { e.stopPropagation(); launchAttack(node.node_id, atk.id); }}
+                                      className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-red-500/20 hover:text-red-300 transition-colors flex items-center space-x-2"
+                                    >
+                                      <Zap size={12} className="text-red-400" />
+                                      <span>{atk.label}</span>
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </motion.div>
                   );
@@ -187,12 +274,45 @@ const Fleet = () => {
         {/* Right Col: Drill-down & Identity */}
         <div className="lg:col-span-1">
            {selectedNode ? (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 sticky top-24">
+              <div className={`bg-gray-900 border rounded-xl p-5 sticky top-24 ${
+                selectedNode.attack_info ? 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'border-gray-800'
+              }`}>
                 <h2 className="text-xl font-semibold text-white border-b border-gray-800 pb-3 mb-4 flex items-center justify-between">
                   <span>Node Profile</span>
                   <span className="text-xs font-mono text-gray-500">{selectedNode.node_id}</span>
                 </h2>
                 
+                {/* Attack Alert Panel */}
+                {selectedNode.attack_info && (
+                  <div className="mb-4 p-4 rounded-lg bg-red-900/30 border border-red-500/40">
+                    <h4 className="text-sm font-bold text-red-400 mb-2 flex items-center space-x-2">
+                      <ShieldAlert size={16} className="animate-pulse" />
+                      <span>ACTIVE THREAT DETECTED</span>
+                    </h4>
+                    <div className="text-sm text-red-300 font-mono mb-2">
+                      {selectedNode.attack_info.attack_type}
+                    </div>
+                    <div className="text-xs text-gray-400 mb-3">
+                      Duration: {Math.round(selectedNode.attack_info.elapsed_seconds || 0)}s | 
+                      Risk: {selectedNode.attack_info.risk_score}/100
+                    </div>
+                    {selectedNode.attack_info.indicators && (
+                      <div className="space-y-1 mb-3">
+                        {selectedNode.attack_info.indicators.map((ind, i) => (
+                          <div key={i} className="text-xs text-red-300/70">▸ {ind}</div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => neutralize(selectedNode.node_id)}
+                      className="w-full py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded transition-all flex items-center justify-center space-x-2"
+                    >
+                      <Shield size={16} />
+                      <span>NEUTRALIZE NOW</span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Identity Mapping</h4>
@@ -222,19 +342,19 @@ const Fleet = () => {
                     <h4 className="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Available Remediation</h4>
                     <div className="space-y-2">
                        <button 
-                          onClick={() => handlePatch(selectedNode.node_id, 'isolate_node')}
+                          onClick={() => dispatchCommand(selectedNode.node_id, 'isolate_node')}
                           className="w-full py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
                         >
                           Isolate Node
                        </button>
                        <button 
-                          onClick={() => handlePatch(selectedNode.node_id, 'block_ip')}
+                          onClick={() => dispatchCommand(selectedNode.node_id, 'block_ip')}
                           className="w-full py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
                         >
                           Push Firewall Rules
                        </button>
                        <button 
-                          onClick={() => handlePatch(selectedNode.node_id, 'kill_process')}
+                          onClick={() => dispatchCommand(selectedNode.node_id, 'kill_process')}
                           className="w-full py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400 text-sm rounded transition-colors"
                         >
                           Kill Malicious Process

@@ -3,7 +3,7 @@ AegisAI v3 — Fleet Management Layer
 Tracks and manages the health state of all registered AegisAgents in the network.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
 class FleetNode:
@@ -17,9 +17,10 @@ class FleetNode:
         self.risk_score = 0
         self.is_simulation_active = False
         self.metrics = {"cpu": 0, "mem": 0}
+        self.attack_info: Optional[Dict[str, Any]] = None
 
     def to_dict(self):
-        return {
+        result = {
             "node_id": self.node_id,
             "hostname": self.hostname,
             "asset_type": self.asset_type,
@@ -30,11 +31,13 @@ class FleetNode:
             "is_simulation_active": self.is_simulation_active,
             "metrics": self.metrics
         }
+        if self.attack_info:
+            result["attack_info"] = self.attack_info
+        return result
 
 class FleetManager:
     def __init__(self):
         self.nodes: Dict[str, FleetNode] = {}
-        # Initial registration for demo/local node
         self.register_node("local-node", "SOC-Command-Primary", "Command_Console")
 
     def register_node(self, node_id: str, hostname: str, asset_type: str = "Workstation"):
@@ -48,7 +51,6 @@ class FleetManager:
             node.risk_score = risk_score
             node.metrics = metrics
             
-            # Derived status
             if risk_score > 70:
                 node.status = "critical"
                 node.risk_level = "critical"
@@ -58,6 +60,16 @@ class FleetManager:
             else:
                 node.status = "nominal"
                 node.risk_level = "low"
+
+    def set_attack_info(self, node_id: str, attack_data: Dict[str, Any]):
+        """Attach live attack metadata to a fleet node."""
+        if node_id in self.nodes:
+            self.nodes[node_id].attack_info = attack_data
+
+    def clear_attack_info(self, node_id: str):
+        """Remove attack metadata when attack is neutralized."""
+        if node_id in self.nodes:
+            self.nodes[node_id].attack_info = None
 
     def get_fleet_summary(self) -> List[Dict[str, Any]]:
         return [node.to_dict() for node in self.nodes.values()]

@@ -34,6 +34,11 @@ class AgentClient:
         self.node_id = node_id or platform.node() or "unknown-node"
         self.token = None
         self.connected = False
+        
+        # Attack simulation state
+        self.is_under_attack = False
+        self.attack_type = ""
+        self.attack_start_time: Optional[float] = None
 
     def get_system_info(self) -> Dict[str, str]:
         return {
@@ -126,16 +131,33 @@ class AgentClient:
 
     async def _execute_local_action(self, action: str, params: Dict[str, Any]) -> bool:
         """Execute the remediation action on the local machine."""
+        import time
         print(f"[AgentClient] Executing {action} with {params}...")
         try:
-            if action == "isolate_node":
+            if action == "simulate_attack":
+                attack = params.get("attack_type", "DDoS Flood")
+                self.is_under_attack = True
+                self.attack_type = attack
+                self.attack_start_time = time.time()
+                print(f"[ALERT] ATTACK SIMULATION STARTED: {attack}")
+                print(f"[ALERT] This node is now broadcasting CRITICAL risk telemetry.")
+                return True
+            elif action == "neutralize":
+                print(f"[REMEDIATION] Neutralizing attack: {self.attack_type}...")
+                await asyncio.sleep(1)  # simulate remediation work
+                self.is_under_attack = False
+                self.attack_type = ""
+                self.attack_start_time = None
+                print(f"[REMEDIATION] Attack neutralized. System restored to NOMINAL.")
+                return True
+            elif action == "isolate_node":
                 print(f"[Exec] Isolating network interfaces (simulation)...")
-                await asyncio.sleep(1) # simulate work
+                await asyncio.sleep(1)
                 return True
             elif action == "block_ip":
                 ip = params.get("target_ip")
                 print(f"[Exec] Blocking IP {ip} in local firewall rules...")
-                await asyncio.sleep(1) # simulate firewall command
+                await asyncio.sleep(1)
                 return True
             elif action == "kill_process":
                 pid = params.get("pid")
@@ -151,6 +173,7 @@ class AgentClient:
 
     async def _stream_telemetry(self, ws):
         """Continuously push telemetry to the Admin node."""
+        import time, random
         from backend.engine.telemetry import TelemetryEngine # type: ignore
         telemetry_engine = TelemetryEngine()
         
@@ -159,18 +182,35 @@ class AgentClient:
                 # Collect local telemetry
                 stats = await asyncio.to_thread(telemetry_engine.get_system_stats)
                 
+                # If under attack, inject elevated threat indicators
+                attack_info = None
+                if self.is_under_attack:
+                    elapsed = time.time() - (self.attack_start_time or time.time())
+                    attack_info = {
+                        "active": True,
+                        "attack_type": self.attack_type,
+                        "risk_score": min(95, 75 + random.randint(0, 20)),
+                        "elapsed_seconds": round(elapsed, 1),
+                        "indicators": [
+                            f"Anomalous {self.attack_type} traffic detected",
+                            f"CPU spike: {random.randint(85, 99)}%",
+                            f"Suspicious connections: {random.randint(50, 200)}"
+                        ]
+                    }
+                
                 # Bundle and send
                 payload = {
                     "type": "TELEMETRY",
                     "data": {
                         "system": stats,
-                        "events": [] # Normally we would tail local audit logs here
+                        "events": [],
+                        "attack": attack_info
                     }
                 }
                 await ws.send(json.dumps(payload))
                 
-                # Push every 3 seconds
-                await asyncio.sleep(3)
+                # Push every 3 seconds (1s during attack for urgency)
+                await asyncio.sleep(1 if self.is_under_attack else 3)
             except Exception as e:
                 print(f"[AgentClient] Streamer error: {e}")
                 break # breaks loop, reconnects

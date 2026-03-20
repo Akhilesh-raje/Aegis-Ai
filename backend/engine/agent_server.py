@@ -103,7 +103,16 @@ class AgentServer:
             system_data = data.get("system", {})
             cpu = system_data.get("cpu_usage", system_data.get("cpu_percent", 0))
             mem = system_data.get("ram_usage", system_data.get("memory_percent", 0))
-            fleet_manager.update_node(node_id, 0, {"cpu": round(cpu, 1), "mem": round(mem, 1)})
+            
+            # Check for attack data
+            attack = data.get("attack", None)
+            if attack and attack.get("active"):
+                risk = attack.get("risk_score", 90)
+                fleet_manager.update_node(node_id, risk, {"cpu": round(cpu, 1), "mem": round(mem, 1)})
+                fleet_manager.set_attack_info(node_id, attack)
+            else:
+                fleet_manager.update_node(node_id, 0, {"cpu": round(cpu, 1), "mem": round(mem, 1)})
+                fleet_manager.clear_attack_info(node_id)
         except Exception as e:
             print(f"[AgentServer] Fleet metric update error: {e}")
         
