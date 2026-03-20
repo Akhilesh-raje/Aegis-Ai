@@ -495,6 +495,23 @@ async def _stream_simulation():
 async def lifespan(app: FastAPI):
     """Initialize models and start independent stream tasks on startup."""
     global app_state
+    
+    node_role = os.environ.get("NODE_ROLE", "admin").lower()
+    
+    if node_role == "client":
+        print("[AegisAI] Starting in AGENT (Client) Mode.")
+        from backend.engine.agent_client import AgentClient # type: ignore
+        admin_url = os.environ.get("ADMIN_URL", "http://localhost:8000")
+        client = AgentClient(admin_url)
+        # We start the agent client in the background
+        asyncio.create_task(client.connect_and_stream())
+        print(f"[AegisAI] Agent background task started. Connecting to {admin_url}")
+        
+        yield
+        print("[AegisAI] Agent shutting down.")
+        return
+        
+    print("[AegisAI] Starting in ADMIN Mode.")
     app_state = initialize_models()
     init_routes(app_state)
 

@@ -544,6 +544,53 @@ async def reset_system():
 
 
 # ---------------------------------------------------------------------------
+# ENTERPRISE FLEET ARCHITECTURE - SECURE AGENTS
+# ---------------------------------------------------------------------------
+
+@router.post("/fleet/register")
+async def register_fleet_agent(req: dict):
+    """Initial secure handshake for AegisAgent to obtain a Token."""
+    from backend.engine.agent_server import agent_server # type: ignore
+    try:
+        if not req.get("node_id"):
+            req["node_id"] = str(uuid.uuid4())
+            
+        print(f"[API] Registering new Agent Node: {req.get('node_id')}")
+        return agent_server.register_agent(req)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.websocket("/ws/agent/{node_id}")
+async def agent_websocket_endpoint(websocket: WebSocket, node_id: str, token: str):
+    """Persistent, dedicated WebSocket for Agent telemetry and commands."""
+    from backend.engine.agent_server import agent_server # type: ignore
+    
+    await agent_server.connect_agent(websocket, node_id, token)
+    
+    # Block in the server's listen loop
+    await agent_server.listen(websocket, node_id)
+
+
+@router.post("/fleet/command")
+async def dispatch_agent_command(req: dict):
+    """Admin Dashboard endpoint to queue a remediation command to a specific node."""
+    from backend.engine.agent_server import agent_server # type: ignore
+    
+    node_id = req.get("node_id")
+    action = req.get("action")
+    params = req.get("params", {})
+    
+    if not node_id or not action:
+        raise HTTPException(status_code=400, detail="node_id and action are required")
+        
+    try:
+        cmd_id = await agent_server.send_command(node_id, action, params)
+        return {"status": "dispatched", "command_id": cmd_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------------------------
 # WAR ROOM — Extreme Testing Suite
 # ---------------------------------------------------------------------------
 

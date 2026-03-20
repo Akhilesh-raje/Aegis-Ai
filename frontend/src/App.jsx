@@ -10,6 +10,7 @@ import NetworkMonitor from './pages/NetworkMonitor';
 import Investigation from './pages/Investigation';
 import Settings from './pages/Settings';
 import WarRoom from './pages/WarRoom';
+import Fleet from './pages/Fleet';
 import { AuraProvider } from './components/layout/AuraProvider';
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ function App() {
               <Route path="/soar" element={<SOAR />} />
               <Route path="/simulation" element={<Simulation />} />
               <Route path="/logs" element={<Logs />} />
+              <Route path="/fleet" element={<Fleet />} />
               <Route path="/war-room" element={<WarRoom />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

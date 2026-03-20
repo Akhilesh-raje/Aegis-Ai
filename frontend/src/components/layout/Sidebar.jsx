@@ -11,7 +11,8 @@ import {
   Shield,
   Activity,
   LogOut,
-  Flame
+  Flame,
+  Server
 } from 'lucide-react';
 // Auth neutralized for direct specialized access
 
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/network', icon: Network, label: 'Network Monitor' },
   { to: '/threats', icon: ShieldAlert, label: 'Threat Intelligence' },
   { to: '/investigation', icon: Search, label: 'Incident Investigation' },
+  { to: '/fleet', icon: Server, label: 'Fleet & Identities' },
   { to: '/soar', icon: Zap, label: 'SOAR Center' },
   { to: '/simulation', icon: Swords, label: 'Attack Simulation' },
   { to: '/war-room', icon: Flame, label: 'Elite War Room' },

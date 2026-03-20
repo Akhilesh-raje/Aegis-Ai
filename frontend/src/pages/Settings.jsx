@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Shield, Users, Globe, Plus, Trash2, Key, AlertTriangle } from 'lucide-react';
+import { Shield, Users, Globe, Plus, Trash2, Key, AlertTriangle, Terminal, Copy, Check } from 'lucide-react';
 import { fetchWebhooks, addWebhook, deleteWebhook, fetchUsers, addUser, deleteUser } from '../services/api';
 // Auth neutralized for direct specialized access
 
@@ -12,6 +12,22 @@ export default function Settings() {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('l1_analyst');
+  const [copied, setCopied] = useState(false);
+
+  const getDeploymentScript = () => {
+    const adminIp = window.location.hostname;
+    return `# AegisAI Agent Deployment Script (Shell)
+export NODE_ROLE="client"
+export ADMIN_URL="http://${adminIp}:8000"
+export NODE_ID=$(hostname)
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8001`;
+  };
+
+  const copyScript = () => {
+    navigator.clipboard.writeText(getDeploymentScript());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const { data: webhooks = [] } = useQuery({ queryKey: ['webhooks'], queryFn: fetchWebhooks });
   const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: fetchUsers });
@@ -173,6 +189,33 @@ export default function Settings() {
           </div>
         </div>
 
+      </div>
+
+      {/* AGENT DEPLOYMENT SECTION */}
+      <div className="space-y-4 pt-6 border-t border-white/5">
+        <div className="flex items-center gap-3 pb-2 border-b border-white/10">
+          <Terminal className="w-5 h-5 text-green-400" />
+          <h3 className="font-semibold text-gray-200">Deploy Remote Aegis Agents</h3>
+        </div>
+        
+        <div className="p-5 bg-white/5 border border-white/10 rounded-xl space-y-4">
+          <p className="text-sm text-gray-400">
+            Run the following shell script on any remote system to instantly register it as a Client Node and begin streaming real-time telemetry back to this Admin console.
+          </p>
+          
+          <div className="relative group">
+            <pre className="p-4 bg-black/50 border border-white/10 rounded-lg text-xs font-mono text-green-400 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+              {getDeploymentScript()}
+            </pre>
+            <button 
+              onClick={copyScript}
+              className="absolute top-3 right-3 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition border border-white/10 flex items-center gap-2 text-xs font-bold shadow-md"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-300" />}
+              {copied ? <span className="text-green-400">Copied!</span> : <span>Copy Script</span>}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
