@@ -64,7 +64,7 @@ class KnowledgeStore:
                 print(f"[KnowledgeStore] ✅ ChromaDB initialized at {persist_dir}")
                 # pyre-ignore[16]
                 print(f"[KnowledgeStore]    Patterns: {self._patterns_collection.count()} | Incidents: {self._incidents_collection.count()}")
-            except Exception as e:
+            except BaseException as e:
                 print(f"[KnowledgeStore] ChromaDB init failed: {e} — using in-memory fallback")
                 self._chroma_client = None
 
