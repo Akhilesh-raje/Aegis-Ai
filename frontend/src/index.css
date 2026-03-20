@@ -1,0 +1,264 @@
+@import "tailwindcss";
+
+:root {
+  /* ═══════════════════════════════════════════ */
+  /* 🎯 AEGIS FINAL COLOR SYSTEM — HIGH CONTRAST */
+  /* ═══════════════════════════════════════════ */
+  --color-bg-primary: #0B0F1A;
+  --color-bg-panel: #111827;
+  --color-bg-card: #111827;
+  --color-bg-elevated: #1a2332;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-glow: rgba(34, 211, 238, 0.4);
+  --color-accent: #22D3EE;
+  --color-accent-dim: rgba(34, 211, 238, 0.6);
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-success: #10B981;
+  --color-info: #3B82F6;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --font-display: 'Orbitron', monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  transition: color 0.5s ease, background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+@theme {
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-panel: var(--color-bg-panel);
+  --color-bg-card: var(--color-bg-card);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-glow: var(--color-border-glow);
+  --color-accent: var(--color-accent);
+  --color-accent-dim: var(--color-accent-dim);
+  --color-danger: var(--color-danger);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ═══════════════════════════════════════════ */
+/* CARD SYSTEM — HIGH CONTRAST                 */
+/* ═══════════════════════════════════════════ */
+.card-glow {
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card-glow:hover {
+  border-color: rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.08);
+  transform: translateY(-1px);
+}
+
+.card-glow:hover::before {
+  opacity: 1;
+}
+
+/* Elite Glassmorphism */
+.glass-panel {
+  background: linear-gradient(135deg, #111827 0%, #0d1117 100%);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════ */
+/* LAYOUT HIERARCHY CONTAINERS                 */
+/* ═══════════════════════════════════════════ */
+
+/* Level 1: Hero (AI Advisor, Score) — DOMINANT */
+.level-1-container {
+  background: #111827;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 0 25px rgba(34, 211, 238, 0.08), inset 0 1px 0 rgba(34, 211, 238, 0.1);
+  overflow: hidden;
+}
+
+/* Level 2: Tactical (Maps, Graphs) */
+.level-2-container {
+  background: #111827;
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* Level 3: Auxiliary (Logs, Data) */
+.level-3-container {
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════ */
+/* ANIMATIONS                                  */
+/* ═══════════════════════════════════════════ */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanline::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent 50%, rgba(34, 211, 238, 0.05) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  opacity: 0.1;
+}
+
+@keyframes border-beam {
+  0% { offset-distance: 0%; }
+  100% { offset-distance: 100%; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 12s linear infinite; }
+
+/* ═══════════════════════════════════════════ */
+/* UTILITIES                                   */
+/* ═══════════════════════════════════════════ */
+.text-glow {
+  text-shadow: 0 0 12px var(--color-accent);
+}
+
+.badge-critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 0 0 10px rgba(239, 68, 68, 0.1); }
+.badge-high { background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); }
+.badge-medium { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-low { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+@keyframes flicker {
+  0% { opacity: 0.8; }
+  5% { opacity: 0.5; }
+  10% { opacity: 0.9; }
+  15% { opacity: 0.3; }
+  25% { opacity: 1; }
+}
+
+.animate-flicker { animation: flicker 3s infinite; }
+
+/* ═══════════════════════════════════════════ */
+/* SIMULATION SEQUENCING EFFECTS               */
+/* ═══════════════════════════════════════════ */
+
+/* Attacking Phase */
+.sim-mode-attacking .card-glow,
+.sim-mode-attacking .glass-panel,
+.sim-mode-attacking .level-1-container,
+.sim-mode-attacking .level-2-container,
+.sim-mode-attacking .level-3-container {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.1) !important;
+  animation: flicker 4s infinite alternate;
+}
+
+.sim-mode-attacking .card-glow::before {
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 1), transparent) !important;
+  opacity: 1 !important;
+}
+
+/* Make some key texts look dangerous */
+.sim-mode-attacking h3:not(.text-white),
+.sim-mode-attacking [class*="text-[#22D3EE]"] {
+  color: #EF4444 !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Mitigating Phase */
+.sim-mode-mitigating .card-glow,
+.sim-mode-mitigating .glass-panel,
+.sim-mode-mitigating .level-1-container,
+.sim-mode-mitigating .level-2-container,
+.sim-mode-mitigating .level-3-container {
+  border-color: rgba(34, 211, 238, 0.5) !important;
+  box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.1), 0 0 15px rgba(34, 211, 238, 0.2) !important;
+}
+
+.sim-mode-mitigating .card-glow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.2), transparent);
+  transform: skewX(-20deg);
+  animation: sweep 2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
