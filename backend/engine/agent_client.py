@@ -77,15 +77,16 @@ class AgentClient:
 
     async def connect_and_stream(self):
         """Establish persistent WebSocket, stream telemetry, and listen for commands."""
-        if not self.token:
-            if not await self.register():
-                print("[AgentClient] Halting due to registration failure.")
-                return
-
-        ws_url = f"{self.admin_ws_url}/api/ws/agent/{self.node_id}?token={self.token}"
-        print(f"[AgentClient] Connecting to WebSockets at {ws_url}")
-
         while True:
+            # Always re-register for a fresh token before connecting
+            if not await self.register():
+                print("[AgentClient] Registration failed. Retrying in 5 seconds...")
+                await asyncio.sleep(5)
+                continue
+
+            ws_url = f"{self.admin_ws_url}/api/ws/agent/{self.node_id}?token={self.token}"
+            print(f"[AgentClient] Connecting to WebSockets at {ws_url}")
+
             try:
                 import websockets # type: ignore
                 async with websockets.connect(ws_url) as ws:
@@ -98,11 +99,14 @@ class AgentClient:
                     
                     # Wait until one of them fails or connection closes
                     await asyncio.gather(listener_task, streamer_task)
-
             except Exception as e:
+                print(f"[AgentClient] Connection failed: {e}")
+            finally:
                 self.connected = False
-                print(f"[AgentClient] WebSocket Error: {e}. Reconnecting in 5s...")
-                await asyncio.sleep(5)
+                self.token = None  # Clear stale token
+            
+            print("[AgentClient] Reconnecting in 5 seconds...")
+            await asyncio.sleep(5)
 
     async def _listen_for_commands(self, ws):
         """Listen for incoming mitigation commands from the Admin."""
