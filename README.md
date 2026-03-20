@@ -19,7 +19,7 @@
 
 ## ⚙️ Operating Modes
 
-AegisAI can run in two distinct modes depending on your objective:
+AegisAI can run in three distinct modes:
 
 1. **Simulation Mode** (Demo)
    - Built-in synthetic traffic generator (`log_generator.py`)
@@ -28,7 +28,11 @@ AegisAI can run in two distinct modes depending on your objective:
 2. **Telemetry Mode** (Analyst)
    - Live endpoint monitoring (via Kafka or HTTP streaming APIs)
    - Threat Simulator disabled
-   - "Read-only" mode for the dashboard unless taking human-in-the-loop action
+   - Real-time ingestion of system logs and performance metrics
+3. **War Mode** (Extreme Stress Test)
+   - Powered by the `ExtremeOrchestrator`
+   - Executes a 9-phase destructive testing suite to verify system resilience
+   - Provides real-time "War Room" telemetry and automated forensics
 
 ---
 
@@ -107,68 +111,73 @@ The prototype is currently completely self-contained. In a production deployment
 
 ```
 AegisAI/
-├── backend/                         # Python FastAPI backend
-│   ├── main.py                      # App entry point — startup, lifespan, background tasks
-│   ├── aegis.db                     # SQLite hot store (auto-created)
+├── backend/                         # 🐍 Python FastAPI Backend (Autonomous Core)
+│   ├── main.py                      # App entry point — startup, lifespan, extreme testing hooks
+│   ├── aegis.db                     # SQLite hot store (persistence layer)
 │   ├── requirements.txt             # Python dependencies
 │   │
-│   ├── api/                         # REST API layer
-│   │   ├── routes.py                # All 9 API endpoints (FastAPI router)
-│   │   └── schemas.py               # Pydantic request/response schemas
+│   ├── api/                         # REST & WebSocket API Layer
+│   │   ├── routes.py                # All 15+ API endpoints (FastAPI router)
+│   │   └── schemas.py               # Pydantic request/response validation models
 │   │
-│   ├── engine/                      # Core security intelligence
-│   │   ├── response_engine.py       # SOAR — containment actions + safelist
-│   │   ├── risk_scorer.py           # Dynamic 0–100 risk score with time decay
-│   │   └── threat_intel.py          # MITRE ATT&CK mapping + human explanations
+│   ├── engine/                      # 🧠 Core Security Intelligence (Decision Layer)
+│   │   ├── extreme_orchestrator.py  # 9-Phase extreme testing (War Mode)
+│   │   ├── rules_engine.py          # Fast heuristic/signature-based detection
+│   │   ├── insight_engine.py        # LLM-powered SOC advisor (v6.0)
+│   │   ├── forensics_tracer.py      # Auto-capture memory dumps & PCAP traces
+│   │   ├── risk_scorer.py           # Multi-vector dynamic risk calculation
+│   │   ├── threat_intel.py          # MITRE ATT&CK mapping & narrative generation
+│   │   ├── graph_engine.py          # Real-time topology edge/node generation
+│   │   ├── response_engine.py       # SOAR — Autonomous containment actions
+│   │   ├── adversary_emulation.py   # Sophisticated attack pattern simulations
+│   │   └── ...                      # Fleet, Identity, Crypto, and Policy engines
 │   │
-│   ├── ml/                          # Machine learning pipeline
-│   │   ├── aggregator.py            # Feature window computation (per source IP)
-│   │   ├── preprocessor.py          # Feature extraction + StandardScaler
-│   │   ├── detector.py              # Isolation Forest anomaly detector
-│   │   └── classifier.py            # Random Forest threat classifier
+│   ├── ml/                          # 🧪 Machine Learning Pipeline
+│   │   ├── aggregator.py            # Feature window computation (Stateful)
+│   │   ├── detector.py              # Isolation Forest (Anomaly detection)
+│   │   └── classifier.py            # Random Forest (Threat classification)
 │   │
-│   ├── simulator/                   # Synthetic traffic generator
-│   │   └── log_generator.py         # Normal + 4 attack pattern generators
+│   ├── forensics/                   # 🔍 Digital Forensics & Incident Response
+│   │   └── tracer.py                # Implementation of memory/network capture
 │   │
-│   ├── storage/                     # Persistence layer
-│   │   └── database.py              # SQLite CRUD for threats, risk, events
+│   ├── stream/                      # 🌊 Streaming Ingestion layer
+│   │   └── aggregator.py            # Real-time event aggregation engine
 │   │
-│   └── stream/                      # Streaming ingestion layer
-│       └── aggregator.py            # Real-time event aggregation engine
+│   └── simulator/                   # 🎮 Synthetic Traffic Generator
+│       └── log_generator.py         # Advanced multi-vector attack generator
 │
-├── frontend/                        # React + Vite dashboard
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── package.json
-│   └── src/
-│       ├── main.jsx                 # App bootstrap
-│       ├── App.jsx                  # Root layout + routing
-│       ├── index.css                # Global design system (~18KB)
-│       ├── hooks/
-│       │   └── useThreats.js        # Polling hook for live threat feed
-│       └── components/
-│           ├── AttackMap.jsx        # Global geo-threat visualization
-│           ├── AttackSimulator.jsx  # Manual attack injection panel
-│           ├── AttackTimeline.jsx   # Chronological event timeline
-│           ├── GuidedDemo.jsx       # Step-by-step demo flow
-│           ├── NetworkTopology.jsx  # Kill Chain network graph view
-│           ├── RadarChart.jsx       # XAI feature contribution radar
-│           ├── RiskGauge.jsx        # Live animated risk dial (0–100)
-│           ├── StatsBar.jsx         # KPI strip (events, threats, uptime)
-│           ├── TerminalLog.jsx      # Syntax-highlighted SOC terminal feed
-│           ├── ThreatDetail.jsx     # Full threat intelligence report modal
-│           ├── ThreatFeed.jsx       # Real-time threat list with filtering
-│           └── ThreatReplay.jsx     # Historical threat playback
+├── frontend/                        # ⚛️ React + Vite Dashboard (SOC Interface)
+│   ├── src/
+│   │   └── components/
+│   │       └── dashboard/           # 30+ Specialized Security Components
+│   │           ├── AIAdvisor.jsx    # Neural Advisor v6.0 Decision Layer
+│   │           ├── SecurityGraph.jsx# Temporal Topology (D3 Force-Directed)
+│   │           ├── MitreHeatmap.jsx # ATT&CK Tactic Coverage View
+│   │           ├── TacticalGlobe.jsx# Global Geo-Threat Visualization
+│   │           ├── ForensicTimeline.jsx # DFIR trace timeline
+│   │           ├── FleetHealthMatrix.jsx# Infrastructure node overview
+│   │           ├── AIChatAssistant.jsx # Interactive SOC assistant
+│   │           └── ...              # Audit logs, Scorecards, Graphs etc.
 │
-└── scripts/                         # Test and utility scripts
-    ├── run_extreme_tests.py         # main extreme testing orchestrator
-    ├── ws_stress_test.py            # WebSocket performance testing
-    └── ...                          # Other verification and testing scripts
+├── scripts/                         # 🛠️ Verification & Testing Scripts
+│   ├── run_extreme_tests.py         # Main extreme testing orchestrator
+│   ├── ws_stress_test.py            # WebSocket performance/stress testing
+│   └── verify_*.py                  # 10+ Modular verification scripts
+│
+└── doc/                             # 📚 Technical Documentation & Blueprints
 ```
 
 ---
 
-## 🧠 ML Pipeline — How It Works
+## 🏗️ Architecture Overview
+
+AegisAI utilizes a highly modular **Security Engine Architecture** designed for high throughput and autonomous precision:
+
+- **War Room Intelligence**: The `ExtremeOrchestrator` runs a 9-phase stress test suite, simulating everything from volumetric DDoS to stealthy APT lateral movement.
+- **Neural Advisor (v6.0)**: An LLM-powered `InsightEngine` that provides real-time narratives, trajectory analysis, and actionable remediation plans.
+- **Heuristic Guardrails**: While ML detects anomalies, the `RulesEngine` provides instant signature-based blocking for common exposures (SSH/RDP/SMB).
+- **DFIR Integration**: The `ForensicsTracer` automatically captures process memory dumps and PCAP buffers when risk hits critical thresholds.
+- **Temporal Topology**: The `GraphEngine` computes real-time relationships between internal nodes and external threats, visualized via a dynamic D3-force graph.
 
 AegisAI uses a **two-stage ML pipeline** that mirrors real-world SIEM/UEBA architecture:
 
@@ -304,22 +313,20 @@ curl -X POST http://localhost:8000/api/respond \
 
 ## 🖥️ Frontend Dashboard
 
-The React dashboard (Vite, pure JSX + CSS) provides **12 specialized components**:
+The React dashboard (Vite + HSL Design System) provides **30+ specialized components** organized into functional layers:
 
-| Component | Purpose |
-|---|---|
-| `StatsBar` | Live KPI ribbon — total events, active threats, mitigated count, uptime |
-| `RiskGauge` | Animated radial dial showing real-time system risk (0–100) |
-| `ThreatFeed` | Live scrolling threat list with severity color-coding and filtering |
-| `ThreatDetail` | Full modal with MITRE ID, indicators, XAI radar chart, response buttons |
-| `TerminalLog` | Syntax-highlighted SOC operator terminal feed (green-on-black) |
-| `AttackMap` | World map with animated attack origin geo-visualization |
-| `AttackTimeline` | Chronological event timeline with threat clustering |
-| `AttackSimulator` | Control panel to manually fire attack simulations |
-| `NetworkTopology` | Kill Chain network graph — nodes, lateral movement paths |
-| `RadarChart` | XAI Explainability — feature contribution radar for each threat |
-| `ThreatReplay` | Step-through historical threat playback mode |
-| `GuidedDemo` | Structured demo flow for presentations |
+| Component | Layer | Purpose |
+|---|---|---|
+| `AIAdvisor` | **Command** | Neural Advisor v6.0 — AI-narrated attack paths & decision support |
+| `SecurityGraph` | **Logic** | Temporal topology graph with real-time threat highlighting |
+| `TacticalGlobe` | **Visual** | Global geo-visualization of incoming attack vectors |
+| `MitreHeatmap` | **Intelligence**| Coverage analysis against MITRE ATT&CK tactics (v14) |
+| `ForensicTimeline`| **Forensics** | Trace of automated memory dumps and PCAP actions |
+| `AttackFlowStory` | **Narrative** | Visual "story" of how an attack progressed through the network |
+| `IdentityPanel` | **Identity** | Real-time monitoring of user account anomalies & sprawl |
+| `FleetHealth` | **Infrastructure**| Live health & risk matrix for all managed endpoints |
+| `WarRoomLog` | **War Room** | High-velocity log feed from extreme execution phases |
+| `StreamingAudit` | **Audit** | Every system event captured in a searchable, live terminal |
 
 ---
 
