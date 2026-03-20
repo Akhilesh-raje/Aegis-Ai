@@ -491,6 +491,96 @@ async def _stream_simulation():
 # ---------------------------------------------------------------------------
 # App Lifespan
 # ---------------------------------------------------------------------------
+async def _client_local_stream(agent_client):
+    """
+    Lightweight stream loop for CLIENT mode.
+    Pushes local telemetry and attack state to the client's own frontend dashboard.
+    """
+    from backend.engine.telemetry import TelemetryEngine  # type: ignore
+    telemetry_engine = TelemetryEngine()
+    
+    print("[AegisStream] Client local stream started (2s cycle)")
+    
+    while True:
+        try:
+            # Collect local system stats
+            stats = await asyncio.to_thread(telemetry_engine.get_system_stats)
+            await ws_manager.broadcast_channel("STATS", stats)
+            
+            full_telemetry = await asyncio.to_thread(telemetry_engine.get_full_telemetry)
+            await ws_manager.broadcast_channel("TELEMETRY", full_telemetry)
+            
+            # Update local fleet node
+            fleet_manager.update_node("local-node", 0, {
+                "cpu": int(stats.get("cpu_usage", 0)),
+                "mem": int(stats.get("ram_usage", 0))
+            })
+            
+            # If agent is under attack, broadcast attack simulation data
+            if agent_client.is_under_attack:
+                import random
+                attack_elapsed = 0
+                if agent_client.attack_start_time:
+                    attack_elapsed = time.time() - agent_client.attack_start_time
+                
+                risk_score = min(95, 75 + random.randint(0, 20))
+                
+                # Update local fleet to show critical status
+                fleet_manager.update_node("local-node", risk_score, {
+                    "cpu": int(stats.get("cpu_usage", 0)),
+                    "mem": int(stats.get("ram_usage", 0))
+                })
+                fleet_manager.set_attack_info("local-node", {
+                    "active": True,
+                    "attack_type": agent_client.attack_type,
+                    "risk_score": risk_score,
+                    "elapsed_seconds": round(attack_elapsed, 1),
+                    "indicators": [
+                        f"Anomalous {agent_client.attack_type} traffic detected",
+                        f"CPU spike: {random.randint(85, 99)}%",
+                        f"Suspicious connections: {random.randint(50, 200)}"
+                    ]
+                })
+                
+                # Broadcast simulation-like data for the dashboard
+                sim_data = [{
+                    "id": "remote-attack-sim",
+                    "scenario": agent_client.attack_type,
+                    "status": "running",
+                    "progress": min(100, int(attack_elapsed * 2)),
+                    "elapsed": round(attack_elapsed, 1),
+                    "risk_score": risk_score,
+                    "attack_type": agent_client.attack_type,
+                }]
+                await ws_manager.broadcast_channel("SIMULATION", sim_data)
+                
+                # Broadcast threat data
+                threat_data = [{
+                    "id": f"remote-attack-{int(time.time())}",
+                    "type": agent_client.attack_type,
+                    "severity": "critical",
+                    "source": "Remote Admin Command",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "active",
+                    "description": f"Active {agent_client.attack_type} attack simulation initiated by Admin SOC"
+                }]
+                await ws_manager.broadcast_channel("THREATS", threat_data)
+            else:
+                # Not under attack — clear any attack info
+                fleet_manager.clear_attack_info("local-node")
+                await ws_manager.broadcast_channel("SIMULATION", [])
+            
+            # Broadcast fleet data to local dashboard
+            fleet_data = fleet_manager.get_fleet_summary()
+            await ws_manager.broadcast_channel("FLEET", fleet_data)
+            
+        except Exception as e:
+            print(f"[AegisStream] Client local stream error: {e}")
+        
+        # 1s during attacks for real-time feel, 3s otherwise
+        await asyncio.sleep(1 if agent_client.is_under_attack else 3)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize models and start independent stream tasks on startup."""
@@ -500,12 +590,16 @@ async def lifespan(app: FastAPI):
     
     if node_role == "client":
         print("[AegisAI] Starting in AGENT (Client) Mode.")
-        from backend.engine.agent_client import AgentClient # type: ignore
+        from backend.engine.agent_client import AgentClient  # type: ignore
         admin_url = os.environ.get("ADMIN_URL", "http://localhost:8000")
         client = AgentClient(admin_url)
         # We start the agent client in the background
         asyncio.create_task(client.connect_and_stream())
         print(f"[AegisAI] Agent background task started. Connecting to {admin_url}")
+        
+        # Start local dashboard streams so the client's own frontend shows data
+        asyncio.create_task(_client_local_stream(client))
+        print("[AegisAI] Local dashboard stream started for client UI.")
         
         yield
         print("[AegisAI] Agent shutting down.")
